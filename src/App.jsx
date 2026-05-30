@@ -12,6 +12,7 @@ import Analytics from './pages/Analytics'
 import GradingCalc from './pages/GradingCalc'
 import PackEV from './pages/PackEV'
 import Portfolio from './pages/Portfolio'
+import Submit from './pages/Submit'
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/grading"      element={<GradingCalc />} />
         <Route path="/pack-ev"      element={<PackEV />} />
         <Route path="/portfolio"    element={<Portfolio />} />
+        <Route path="/submit"       element={<Submit />} />
       </Routes>
     </BrowserRouter>
   )
