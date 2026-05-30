@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CheckCircle, Upload, DollarSign, Info } from 'lucide-react'
-import { categories, getFeeBreakdown } from '../data/listings'
+import { categories } from '../data/listings'
+import { createSubmission, calcFee } from '../lib/api'
 
 const CONDITIONS = [
   'New - Sealed',
@@ -35,9 +36,19 @@ export default function Submit() {
     sellerName: '', email: '', paypalEmail: '', agreeToFees: false,
   })
   const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+  const [feeData, setFeeData] = useState(null)
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  const fee = getFeeBreakdown(form.askingPrice)
+  const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  // Fetch fee from backend when price changes
+  const handlePriceChange = async (v) => {
+    setField('askingPrice', v)
+    const p = parseFloat(v)
+    if (!isNaN(p) && p > 0) {
+      try { setFeeData(await calcFee(p)) } catch {}
+    } else { setFeeData(null) }
+  }
 
   function validate(s) {
     const e = {}
@@ -57,12 +68,33 @@ export default function Submit() {
     return e
   }
 
-  function next() {
+  async function next() {
     const e = validate(step)
     if (Object.keys(e).length) { setErrors(e); return }
     setErrors({})
-    if (step < 2) setStep(s => s + 1)
-    else setDone(true)
+    if (step < 2) { setStep(s => s + 1); return }
+
+    // Final step — submit to backend
+    setSubmitting(true)
+    try {
+      await createSubmission({
+        card_name:    form.itemName,
+        set_name:     form.set,
+        card_number:  form.number,
+        category:     form.category,
+        condition:    form.condition,
+        asking_price: parseFloat(form.askingPrice),
+        description:  form.notes,
+        seller_name:  form.sellerName,
+        seller_email: form.email,
+        paypal_email: form.paypalEmail,
+      })
+      setDone(true)
+    } catch (err) {
+      setErrors({ submit: err.message || 'Submission failed. Please try again.' })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (done) {
@@ -75,13 +107,15 @@ export default function Submit() {
             We'll review <strong className="text-white">{form.itemName}</strong> and get back to you at <strong className="text-white">{form.email}</strong> within 24 hours.
           </p>
           <p style={{ color: '#6b7280', fontSize: 13 }} className="mb-6">
-            Once approved, your listing will go live at your asking price of <strong className="text-white">${parseFloat(form.askingPrice).toLocaleString()}</strong>. You'll receive <strong className="text-white">${fee.youGet}</strong> when it sells.
+            Once approved, your listing will go live at your asking price of <strong className="text-white">${parseFloat(form.askingPrice).toLocaleString()}</strong>. You'll receive <strong className="text-white">${feeData?.sellerPayout ?? '—'}</strong> when it sells.
           </p>
+          {feeData && (
           <div className="rounded-xl p-4 mb-6 text-sm text-left" style={{ background: '#ffffff08', border: '1px solid #ffffff10' }}>
-            <div className="flex justify-between text-white mb-1"><span>Asking Price</span><span>${parseFloat(form.askingPrice).toLocaleString()}</span></div>
-            <div className="flex justify-between mb-1" style={{ color: '#6b7280' }}><span>Platform Fee (4% + $0.50)</span><span>-${fee.fee}</span></div>
-            <div className="flex justify-between font-bold" style={{ color: '#4ade80' }}><span>You Receive</span><span>${fee.youGet}</span></div>
+            <div className="flex justify-between text-white mb-1"><span>Asking Price</span><span>${feeData.salePrice.toLocaleString()}</span></div>
+            <div className="flex justify-between mb-1" style={{ color: '#6b7280' }}><span>Platform Fee (4% + $0.50)</span><span>-${feeData.platformFee}</span></div>
+            <div className="flex justify-between font-bold" style={{ color: '#4ade80' }}><span>You Receive</span><span>${feeData.sellerPayout}</span></div>
           </div>
+          )}
           <button
             onClick={() => { setDone(false); setStep(0); setForm({ itemName:'',set:'',number:'',category:'',condition:'',askingPrice:'',notes:'',images:[],sellerName:'',email:'',paypalEmail:'',agreeToFees:false }) }}
             className="text-sm font-semibold transition-colors hover:text-white"
@@ -140,7 +174,7 @@ export default function Submit() {
                   type="text"
                   placeholder="e.g. Charizard Holo"
                   value={form.itemName}
-                  onChange={e => set('itemName', e.target.value)}
+                  onChange={e => setField('itemName', e.target.value)}
                   style={inputStyle}
                 />
                 {errors.itemName && <p style={errStyle}>{errors.itemName}</p>}
@@ -151,7 +185,7 @@ export default function Submit() {
                   type="text"
                   placeholder="e.g. Base Set, 2003 Topps Chrome"
                   value={form.set}
-                  onChange={e => set('set', e.target.value)}
+                  onChange={e => setField('set', e.target.value)}
                   style={inputStyle}
                 />
               </div>
@@ -164,7 +198,7 @@ export default function Submit() {
                   type="text"
                   placeholder="e.g. 4/102, #111, 75257"
                   value={form.number}
-                  onChange={e => set('number', e.target.value)}
+                  onChange={e => setField('number', e.target.value)}
                   style={inputStyle}
                 />
               </div>
@@ -172,7 +206,7 @@ export default function Submit() {
                 <label style={labelStyle}>Category *</label>
                 <select
                   value={form.category}
-                  onChange={e => set('category', e.target.value)}
+                  onChange={e => setField('category', e.target.value)}
                   style={{ ...inputStyle, appearance: 'none' }}
                 >
                   <option value="">Select category</option>
@@ -186,7 +220,7 @@ export default function Submit() {
               <label style={labelStyle}>Condition *</label>
               <select
                 value={form.condition}
-                onChange={e => set('condition', e.target.value)}
+                onChange={e => setField('condition', e.target.value)}
                 style={{ ...inputStyle, appearance: 'none' }}
               >
                 <option value="">Select condition</option>
@@ -201,7 +235,7 @@ export default function Submit() {
                 rows={4}
                 placeholder="Centering, surface condition, cert number for graded cards, known flaws..."
                 value={form.notes}
-                onChange={e => set('notes', e.target.value)}
+                onChange={e => setField('notes', e.target.value)}
                 style={{ ...inputStyle, resize: 'vertical' }}
               />
             </div>
@@ -224,7 +258,7 @@ export default function Submit() {
                   accept="image/*"
                   multiple
                   className="hidden"
-                  onChange={e => set('images', Array.from(e.target.files).map(f => f.name))}
+                  onChange={e => setField('images', Array.from(e.target.files).map(f => f.name))}
                 />
               </div>
               {form.images.length > 0 && (
@@ -256,7 +290,7 @@ export default function Submit() {
                   step="0.01"
                   placeholder="0.00"
                   value={form.askingPrice}
-                  onChange={e => set('askingPrice', e.target.value)}
+                  onChange={e => handlePriceChange(e.target.value)}
                   style={{ ...inputStyle, paddingLeft: 32 }}
                 />
               </div>
@@ -264,7 +298,7 @@ export default function Submit() {
             </div>
 
             {/* Live fee breakdown */}
-            {parseFloat(form.askingPrice) > 0 && (
+            {feeData && (
               <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #ffffff10' }}>
                 <div className="px-5 py-3" style={{ background: '#0d0d1a', borderBottom: '1px solid #ffffff08' }}>
                   <span className="text-xs font-bold text-white uppercase tracking-wider">Fee Breakdown</span>
@@ -272,24 +306,24 @@ export default function Submit() {
                 <div className="px-5 py-4 space-y-3" style={{ background: '#ffffff06' }}>
                   <div className="flex justify-between text-sm">
                     <span style={{ color: '#9ca3af' }}>Your asking price</span>
-                    <span className="text-white font-semibold">${parseFloat(form.askingPrice).toLocaleString()}</span>
+                    <span className="text-white font-semibold">${feeData.salePrice.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span style={{ color: '#9ca3af' }}>Platform fee (4% + $0.50)</span>
-                    <span style={{ color: '#f87171' }}>-${fee.fee}</span>
+                    <span style={{ color: '#f87171' }}>-${feeData.platformFee}</span>
                   </div>
                   <div className="border-t pt-3 flex justify-between font-bold" style={{ borderColor: '#ffffff10' }}>
                     <span className="text-white">You receive</span>
-                    <span style={{ color: '#4ade80', fontSize: 18 }}>${fee.youGet}</span>
+                    <span style={{ color: '#4ade80', fontSize: 18 }}>${feeData.sellerPayout}</span>
                   </div>
                   <div className="rounded-lg px-4 py-3 space-y-1.5" style={{ background: '#0d0d1a' }}>
                     <div className="flex justify-between text-xs" style={{ color: '#d97706' }}>
                       <span>Goes to Ben's legal defense (60%)</span>
-                      <span>${fee.causeAmount}</span>
+                      <span>${feeData.causeAmount}</span>
                     </div>
                     <div className="flex justify-between text-xs" style={{ color: '#6b7280' }}>
                       <span>Operations (40%)</span>
-                      <span>${fee.opsAmount}</span>
+                      <span>${feeData.opsAmount}</span>
                     </div>
                   </div>
                 </div>
@@ -315,7 +349,7 @@ export default function Submit() {
                   type="text"
                   placeholder="Full name"
                   value={form.sellerName}
-                  onChange={e => set('sellerName', e.target.value)}
+                  onChange={e => setField('sellerName', e.target.value)}
                   style={inputStyle}
                 />
                 {errors.sellerName && <p style={errStyle}>{errors.sellerName}</p>}
@@ -326,7 +360,7 @@ export default function Submit() {
                   type="email"
                   placeholder="you@example.com"
                   value={form.email}
-                  onChange={e => set('email', e.target.value)}
+                  onChange={e => setField('email', e.target.value)}
                   style={inputStyle}
                 />
                 {errors.email && <p style={errStyle}>{errors.email}</p>}
@@ -339,7 +373,7 @@ export default function Submit() {
                 type="email"
                 placeholder="Same as above or different PayPal address"
                 value={form.paypalEmail}
-                onChange={e => set('paypalEmail', e.target.value)}
+                onChange={e => setField('paypalEmail', e.target.value)}
                 style={inputStyle}
               />
               <p style={{ color: '#4b5563', fontSize: 11, marginTop: 4 }}>Leave blank if same as email above. Stripe payout option coming soon.</p>
@@ -368,7 +402,7 @@ export default function Submit() {
               <input
                 type="checkbox"
                 checked={form.agreeToFees}
-                onChange={e => set('agreeToFees', e.target.checked)}
+                onChange={e => setField('agreeToFees', e.target.checked)}
                 className="mt-1"
                 style={{ accentColor: '#4f46e5' }}
               />
@@ -388,12 +422,16 @@ export default function Submit() {
             </button>
           ) : <div />}
 
+          {errors.submit && (
+            <p style={{ color: '#f87171', fontSize: 13 }} className="text-right">{errors.submit}</p>
+          )}
           <button
             onClick={next}
-            className="font-bold px-8 py-3 rounded-xl text-sm text-black transition-opacity hover:opacity-90"
+            disabled={submitting}
+            className="font-bold px-8 py-3 rounded-xl text-sm transition-opacity hover:opacity-90 disabled:opacity-50"
             style={{ background: '#4f46e5', color: 'white' }}
           >
-            {step < 2 ? 'Continue' : 'Submit for Review'}
+            {submitting ? 'Submitting...' : step < 2 ? 'Continue' : 'Submit for Review'}
           </button>
         </div>
       </div>
