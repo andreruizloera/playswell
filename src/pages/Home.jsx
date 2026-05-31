@@ -1,305 +1,350 @@
-import { useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, ChevronRight, Shield, Heart, TrendingUp, Zap } from 'lucide-react'
-import { listings } from '../data/listings'
+import { ArrowRight } from 'lucide-react'
 
-const CARD_COLORS = {
-  pokemon:        { border: '#FFDE00', glow: '#FFDE0033', bg: 'linear-gradient(160deg,#1a1a2e,#16213e)' },
-  lego:           { border: '#ff4444', glow: '#ff444433', bg: 'linear-gradient(160deg,#1a0808,#2e1212)' },
-  baseball:       { border: '#4ade80', glow: '#4ade8033', bg: 'linear-gradient(160deg,#0a180a,#122e12)' },
-  basketball:     { border: '#f97316', glow: '#f9731633', bg: 'linear-gradient(160deg,#1a0e08,#2e180e)' },
-  mtg:            { border: '#c084fc', glow: '#c084fc33', bg: 'linear-gradient(160deg,#12091a,#1e0f2e)' },
-  'hot-wheels':   { border: '#ef4444', glow: '#ef444433', bg: 'linear-gradient(160deg,#1a0808,#2e0808)' },
-  comics:         { border: '#60a5fa', glow: '#60a5fa33', bg: 'linear-gradient(160deg,#080e1a,#0e162e)' },
-  'vintage-toys': { border: '#34d399', glow: '#34d39933', bg: 'linear-gradient(160deg,#081a12,#0e2e1a)' },
-}
-
-const BADGE = {
-  'New - Sealed':        { label: 'SEALED',  color: '#000', bg: '#4ade80' },
-  'Like New - Complete': { label: 'LN',      color: '#000', bg: '#60a5fa' },
-  'Graded - PSA 10':     { label: 'PSA 10',  color: '#000', bg: '#FFDE00' },
-  'Graded - PSA 9':      { label: 'PSA 9',   color: '#000', bg: '#FFDE00' },
-  'Graded - PSA 8':      { label: 'PSA 8',   color: '#000', bg: '#f97316' },
-  'Graded - CGC 3.0':    { label: 'CGC 3.0', color: '#fff', bg: '#7c3aed' },
-  'Raw - VG':            { label: 'RAW',     color: '#fff', bg: '#475569' },
-  'Good - Used':         { label: 'GOOD',    color: '#fff', bg: '#475569' },
-  'Good - Complete':     { label: 'GOOD',    color: '#fff', bg: '#475569' },
-  'Heavy Play':          { label: 'HP',      color: '#fff', bg: '#dc2626' },
-}
-
-const CAT_ROUTES = [
-  { id: 'pokemon',      path: '/pokemon',      label: 'Pokemon Cards',        sub: 'Raw, graded, sealed',           accent: '#FFDE00', bg: '#3B4CCA' },
-  { id: 'lego',         path: '/lego',         label: 'LEGO Sets',            sub: 'Retired sets & minifigs',        accent: '#ff4444', bg: '#CC0000' },
-  { id: 'baseball',     path: '/baseball',     label: 'Baseball Cards',       sub: 'Vintage, rookies, graded',       accent: '#4ade80', bg: '#14532d' },
-  { id: 'basketball',   path: '/basketball',   label: 'Basketball Cards',     sub: 'Refractors & rookies',           accent: '#fdba74', bg: '#9a3412' },
-  { id: 'mtg',          path: '/mtg',          label: 'Magic: The Gathering', sub: 'Reserved list & vintage power',  accent: '#c084fc', bg: '#4c1d95' },
-  { id: 'hot-wheels',   path: '/hot-wheels',   label: 'Hot Wheels',           sub: 'Redlines & treasure hunts',      accent: '#fca5a5', bg: '#991b1b' },
-  { id: 'comics',       path: '/comics',       label: 'Comic Books',          sub: 'Key issues & first appearances', accent: '#93c5fd', bg: '#1e3a5f' },
-  { id: 'vintage-toys', path: '/vintage-toys', label: 'Vintage Toys',         sub: 'Star Wars, Kenner, Transformers',accent: '#6ee7b7', bg: '#14532d' },
+const CATEGORIES = [
+  {
+    id: 'pokemon',
+    path: '/pokemon',
+    label: 'Pokemon',
+    sub: 'Cards',
+    desc: 'Base Set to modern era',
+    accent: '#FFDE00',
+    dark: '#1a1a3e',
+    border: '#FFDE0066',
+    size: 'large', // takes up more grid space
+    preview: [
+      'https://images.pokemontcg.io/base1/4.png',
+      'https://images.pokemontcg.io/base1/2.png',
+      'https://images.pokemontcg.io/base1/10.png',
+      'https://images.pokemontcg.io/sv3pt5/199.png',
+      'https://images.pokemontcg.io/swsh11/211.png',
+    ],
+  },
+  {
+    id: 'lego',
+    path: '/lego',
+    label: 'LEGO',
+    sub: 'Sets',
+    desc: '26,939 sets & counting',
+    accent: '#ff4444',
+    dark: '#1a0808',
+    border: '#ff444466',
+    size: 'large',
+    preview: [
+      'https://cdn.rebrickable.com/media/sets/75192-1.jpg',
+      'https://cdn.rebrickable.com/media/sets/71043-1.jpg',
+      'https://cdn.rebrickable.com/media/sets/10307-1.jpg',
+      'https://cdn.rebrickable.com/media/sets/10305-1.jpg',
+      'https://cdn.rebrickable.com/media/sets/42083-1.jpg',
+    ],
+  },
+  {
+    id: 'baseball',
+    path: '/baseball',
+    label: 'Baseball',
+    sub: 'Cards',
+    desc: 'Vintage to modern',
+    accent: '#4ade80',
+    dark: '#071a07',
+    border: '#4ade8044',
+    size: 'small',
+    preview: [],
+  },
+  {
+    id: 'basketball',
+    path: '/basketball',
+    label: 'Basketball',
+    sub: 'Cards',
+    desc: 'Rookies & refractors',
+    accent: '#f97316',
+    dark: '#1a0e08',
+    border: '#f9731644',
+    size: 'small',
+    preview: [],
+  },
+  {
+    id: 'mtg',
+    path: '/mtg',
+    label: 'Magic',
+    sub: 'The Gathering',
+    desc: 'Reserved list & power',
+    accent: '#c084fc',
+    dark: '#0d061a',
+    border: '#c084fc44',
+    size: 'small',
+    preview: [],
+  },
+  {
+    id: 'hot-wheels',
+    path: '/hot-wheels',
+    label: 'Hot Wheels',
+    sub: 'Diecast',
+    desc: 'Redlines & supers',
+    accent: '#f87171',
+    dark: '#1a0404',
+    border: '#f8717144',
+    size: 'small',
+    preview: [],
+  },
+  {
+    id: 'comics',
+    path: '/comics',
+    label: 'Comics',
+    sub: 'Books',
+    desc: 'Key issues & slabs',
+    accent: '#60a5fa',
+    dark: '#04080f',
+    border: '#60a5fa44',
+    size: 'small',
+    preview: [],
+  },
+  {
+    id: 'vintage-toys',
+    path: '/vintage-toys',
+    label: 'Vintage',
+    sub: 'Toys',
+    desc: 'Kenner, Hasbro & more',
+    accent: '#34d399',
+    dark: '#041208',
+    border: '#34d39944',
+    size: 'small',
+    preview: [],
+  },
 ]
 
-function CarouselCard({ listing }) {
-  const colors = CARD_COLORS[listing.category] || CARD_COLORS.pokemon
-  const badge  = BADGE[listing.condition]      || { label: 'USED', color: '#fff', bg: '#475569' }
+function CategoryTile({ cat, isHovered, onHover, onLeave }) {
+  const isLarge = cat.size === 'large'
 
   return (
-    <Link to={`/listing/${listing.id}`} className="no-underline flex-shrink-0" style={{ width: 176 }}>
+    <Link
+      to={cat.path}
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      className={`relative overflow-hidden no-underline block transition-all duration-300 rounded-2xl group ${isLarge ? 'row-span-2' : ''}`}
+      style={{
+        background: cat.dark,
+        border: `1px solid ${isHovered ? cat.accent + 'aa' : cat.border}`,
+        boxShadow: isHovered ? `0 0 40px ${cat.accent}33, inset 0 0 60px ${cat.accent}08` : 'none',
+        transform: isHovered ? 'scale(1.015)' : 'scale(1)',
+      }}
+    >
+      {/* Animated background glow */}
       <div
-        className="rounded-xl overflow-hidden flex flex-col transition-transform hover:scale-105 cursor-pointer"
-        style={{ border: `2px solid ${colors.border}`, boxShadow: `0 0 16px ${colors.glow}`, background: colors.bg, height: 264 }}
-      >
-        {/* Badge + price */}
-        <div className="flex items-center justify-between px-2 pt-2 pb-1">
-          <span style={{ fontSize: 9, fontWeight: 700, background: badge.bg, color: badge.color, padding: '2px 5px', borderRadius: 3, letterSpacing: '0.05em' }}>
-            {badge.label}
-          </span>
-          <span style={{ fontSize: 11, color: colors.border, fontWeight: 700 }}>
-            ${listing.price.toLocaleString()}
-          </span>
-        </div>
+        className="absolute inset-0 transition-opacity duration-300"
+        style={{
+          background: `radial-gradient(ellipse at 50% 100%, ${cat.accent}18 0%, transparent 70%)`,
+          opacity: isHovered ? 1 : 0,
+        }}
+      />
 
-        {/* Card image */}
-        <div className="flex-1 flex items-center justify-center overflow-hidden px-2">
-          {listing.image ? (
+      {/* Preview images for large tiles */}
+      {isLarge && cat.preview.length > 0 && (
+        <div className="absolute inset-0 flex items-end justify-center pb-20 px-4 gap-2 pointer-events-none">
+          {cat.preview.slice(0, 5).map((src, i) => (
             <img
-              src={listing.image}
-              alt={listing.cardName}
-              className="object-contain w-full h-full"
-              style={{ maxHeight: 158 }}
-              loading="lazy"
-              onError={e => {
-                e.target.style.display = 'none'
-                e.target.nextSibling.style.display = 'flex'
+              key={i}
+              src={src}
+              alt=""
+              className="object-contain rounded-lg transition-all duration-500"
+              style={{
+                height: i === 2 ? 140 : i === 1 || i === 3 ? 120 : 95,
+                width: 'auto',
+                maxWidth: cat.id === 'lego' ? 160 : 90,
+                objectFit: cat.id === 'lego' ? 'cover' : 'contain',
+                opacity: isHovered ? 1 : 0.5,
+                transform: isHovered
+                  ? `translateY(${i === 2 ? -12 : i === 1 || i === 3 ? -6 : 0}px) rotate(${[-8,-4,0,4,8][i]}deg)`
+                  : `translateY(${i === 2 ? -4 : 0}px) rotate(${[-8,-4,0,4,8][i]}deg)`,
+                filter: isHovered ? 'none' : 'brightness(0.6)',
+                transition: `all 0.4s ease ${i * 0.05}s`,
               }}
             />
-          ) : null}
-          {/* Fallback: colored rectangle with name */}
+          ))}
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="relative z-10 p-5 flex flex-col h-full">
+        {/* Top row */}
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="w-6 h-0.5 rounded-full mb-3" style={{ background: cat.accent }} />
+            <div className="font-black leading-none" style={{ color: cat.accent, fontSize: isLarge ? 28 : 18 }}>
+              {cat.label}
+            </div>
+            <div className="font-semibold" style={{ color: '#ffffff99', fontSize: isLarge ? 14 : 11, marginTop: 2 }}>
+              {cat.sub}
+            </div>
+          </div>
           <div
-            className="w-full rounded-lg items-center justify-center text-center px-2"
-            style={{ height: 158, background: `${colors.border}15`, border: `1px solid ${colors.border}30`, display: listing.image ? 'none' : 'flex', flexDirection: 'column' }}
+            className="transition-all duration-300 rounded-full flex items-center justify-center"
+            style={{
+              width: 28, height: 28,
+              background: isHovered ? cat.accent : `${cat.accent}22`,
+              color: isHovered ? '#000' : cat.accent,
+            }}
           >
-            <span style={{ color: colors.border, fontSize: 12, fontWeight: 700, lineHeight: 1.3 }}>{listing.cardName}</span>
-            <span style={{ color: '#64748b', fontSize: 10, marginTop: 4 }}>{listing.set}</span>
+            <ArrowRight size={13} />
           </div>
         </div>
 
-        {/* Card name + set */}
-        <div className="px-2 pb-2 pt-1">
-          <div style={{ color: '#f1f5f9', fontSize: 10, fontWeight: 600, lineHeight: 1.3 }} className="line-clamp-1">
-            {listing.cardName}
-          </div>
-          <div style={{ color: '#64748b', fontSize: 9, marginTop: 1 }} className="line-clamp-1">
-            {listing.set} &middot; {listing.number}
-          </div>
+        {/* Bottom */}
+        <div className="mt-auto">
+          <p style={{ color: '#6b7280', fontSize: isLarge ? 12 : 10 }}>{cat.desc}</p>
         </div>
       </div>
     </Link>
   )
 }
 
-function InfiniteCarousel({ items, speed = 30 }) {
-  const trackRef = useRef(null)
-  const tripled  = [...items, ...items, ...items]
+export default function Home() {
+  const [hovered, setHovered] = useState(null)
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    const track = trackRef.current
-    if (!track) return
-    const cardW  = 176 + 12
-    const totalW = items.length * cardW
-    let pos = 0, raf
-    const step = () => {
-      pos += speed / 60
-      if (pos >= totalW) pos -= totalW
-      track.style.transform = `translateX(-${pos}px)`
-      raf = requestAnimationFrame(step)
-    }
-    raf = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(raf)
-  }, [items, speed])
+    const t = setTimeout(() => setLoaded(true), 80)
+    return () => clearTimeout(t)
+  }, [])
+
+  const large = CATEGORIES.filter(c => c.size === 'large')
+  const small = CATEGORIES.filter(c => c.size === 'small')
 
   return (
-    <div className="overflow-hidden w-full">
-      <div ref={trackRef} className="flex gap-3" style={{ willChange: 'transform', width: 'max-content' }}>
-        {tripled.map((item, i) => <CarouselCard key={`${item.id}-${i}`} listing={item} />)}
-      </div>
-    </div>
-  )
-}
+    <div
+      style={{
+        background: '#07070d',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Background grid lines */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)
+          `,
+          backgroundSize: '60px 60px',
+          maskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%)',
+        }}
+      />
 
-export default function Home() {
-  const row1 = listings.filter((_, i) => i % 2 === 0)
-  const row2 = listings.filter((_, i) => i % 2 === 1)
-
-  return (
-    <div style={{ background: '#0a0a0f', minHeight: '100vh', color: 'white' }}>
-
-      {/* Hero */}
-      <section className="max-w-7xl mx-auto px-4 pt-14 pb-10 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs mb-6 border" style={{ background: '#ffffff08', borderColor: '#ffffff15', color: '#9ca3af' }}>
-          All profit goes to Reckless Ben's legal defense &mdash;
-          <Link to="/how-it-works" className="text-amber-400 font-semibold no-underline hover:text-amber-300 transition-colors">Learn more</Link>
+      {/* Main layout — fills the viewport */}
+      <div
+        className="relative flex-1 flex flex-col"
+        style={{
+          maxWidth: 1280,
+          width: '100%',
+          margin: '0 auto',
+          padding: '24px 20px 20px',
+          minHeight: 'calc(100vh - 72px)', // account for navbar + banner
+        }}
+      >
+        {/* Header */}
+        <div
+          className="text-center mb-8 transition-all duration-700"
+          style={{ opacity: loaded ? 1 : 0, transform: loaded ? 'none' : 'translateY(-12px)' }}
+        >
+          <p style={{ color: '#4b5563', fontSize: 11, letterSpacing: '0.15em', fontWeight: 600, textTransform: 'uppercase', marginBottom: 10 }}>
+            The collector marketplace
+          </p>
+          <h1
+            className="font-black leading-none tracking-tight"
+            style={{ fontSize: 'clamp(2rem, 5vw, 4rem)', color: 'white' }}
+          >
+            What are you{' '}
+            <span style={{ background: 'linear-gradient(90deg,#FFDE00,#f97316,#c084fc,#4ade80)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              collecting?
+            </span>
+          </h1>
         </div>
-        <h1 className="font-black leading-none tracking-tight mb-4" style={{ fontSize: 'clamp(2.5rem,8vw,5.5rem)' }}>
-          The collector{' '}
-          <span style={{ background: 'linear-gradient(90deg,#FFDE00,#f97316,#c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            marketplace
-          </span>
-        </h1>
-        <p style={{ color: '#6b7280' }} className="text-lg mb-8 max-w-xl mx-auto">
-          Lowest fees of any real marketplace — 4% + $0.50. Every cent of profit funds Ben's defense.
-        </p>
-        <div className="flex flex-wrap gap-3 justify-center">
-          <Link to="/sell"   className="font-bold px-7 py-3 rounded-xl no-underline text-black transition-opacity hover:opacity-90" style={{ background: '#FFDE00' }}>Start Selling</Link>
-          <Link to="/submit" className="font-semibold px-7 py-3 rounded-xl no-underline border transition-colors text-white hover:bg-white/10" style={{ borderColor: '#ffffff20' }}>Submit an Item</Link>
-          <Link to="/market" className="font-semibold px-7 py-3 rounded-xl no-underline border transition-colors text-white hover:bg-white/10" style={{ borderColor: '#ffffff20' }}>Live Market</Link>
-        </div>
-      </section>
 
-      {/* Carousel 1 */}
-      <section className="mb-6">
-        <div className="max-w-7xl mx-auto px-4 mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-bold text-white flex items-center gap-2">Featured Listings <Zap size={14} className="text-yellow-400" /></h2>
-            <p style={{ color: '#6b7280', fontSize: 12 }}>Discover our hot listings</p>
-          </div>
-          <Link to="/browse" style={{ color: '#6b7280', fontSize: 13 }} className="hover:text-white no-underline flex items-center gap-1 transition-colors">
-            View All <ChevronRight size={13} />
-          </Link>
-        </div>
-        <InfiniteCarousel items={row1} speed={28} />
-      </section>
-
-      {/* Carousel 2 */}
-      <section className="mb-14">
-        <div className="max-w-7xl mx-auto px-4 mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-bold text-white">Trending Now</h2>
-            <p style={{ color: '#6b7280', fontSize: 12 }}>Hot cards gaining momentum</p>
-          </div>
-          <Link to="/market" style={{ color: '#6b7280', fontSize: 13 }} className="hover:text-white no-underline flex items-center gap-1 transition-colors">
-            View All <ChevronRight size={13} />
-          </Link>
-        </div>
-        <InfiniteCarousel items={row2} speed={20} />
-      </section>
-
-      {/* Category selector */}
-      <section className="max-w-7xl mx-auto px-4 mb-16">
-        <h2 className="text-xl font-bold text-white mb-1">Shop by Category</h2>
-        <p style={{ color: '#6b7280', fontSize: 13 }} className="mb-7">Choose what you collect</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {CAT_ROUTES.map(cat => (
-            <Link
-              key={cat.id}
-              to={cat.path}
-              className="group relative rounded-xl p-5 flex flex-col gap-3 no-underline transition-all duration-200 hover:scale-[1.03] border"
-              style={{ background: `${cat.bg}18`, borderColor: `${cat.bg}44` }}
-            >
-              <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200" style={{ background: `${cat.bg}22` }} />
-              {/* Color accent bar */}
-              <div className="w-8 h-1 rounded-full" style={{ background: cat.accent }} />
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <div className="font-bold text-white text-sm">{cat.label}</div>
-                <div style={{ color: '#6b7280', fontSize: 11, marginTop: 2 }}>{cat.sub}</div>
-              </div>
-              <div className="flex items-center justify-between" style={{ position: 'relative', zIndex: 1 }}>
-                <span style={{ color: cat.accent, fontSize: 11, fontWeight: 600 }}>Browse</span>
-                <ArrowRight size={12} style={{ color: cat.accent }} />
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* Cause */}
-      <section className="max-w-7xl mx-auto px-4 mb-16">
-        <div className="rounded-2xl p-8 grid md:grid-cols-2 gap-8 items-center" style={{ background: 'linear-gradient(135deg,#110d1e,#0d0a18)', border: '1px solid #ffffff10' }}>
-          <div>
-            <div className="text-xs font-bold px-3 py-1 rounded-full inline-block mb-4" style={{ background: '#f9731618', color: '#f97316', border: '1px solid #f9731635' }}>
-              OUR CAUSE
+        {/* Category grid */}
+        <div
+          className="flex-1 transition-all duration-700"
+          style={{
+            opacity: loaded ? 1 : 0,
+            transform: loaded ? 'none' : 'translateY(16px)',
+            transitionDelay: '0.1s',
+          }}
+        >
+          {/* Desktop: custom grid layout */}
+          <div className="hidden md:grid gap-3 h-full" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr', gridTemplateRows: 'repeat(3, 1fr)', minHeight: 480 }}>
+            {/* Pokemon — large, col 1-2, row 1-2 */}
+            <div style={{ gridColumn: '1 / 3', gridRow: '1 / 3' }}>
+              <CategoryTile cat={CATEGORIES[0]} isHovered={hovered === 'pokemon'} onHover={() => setHovered('pokemon')} onLeave={() => setHovered(null)} />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-3">Collectors protecting collectors</h2>
-            <p style={{ color: '#6b7280' }} className="text-sm mb-3">
-              Bryan Mansell's $200,000 LEGO Star Wars collection vanished when a Bricks &amp; Minifigs franchise changed hands. YouTuber Reckless Ben investigated — and was arrested in Utah on May 30, 2026.
-            </p>
-            <p style={{ color: '#6b7280' }} className="text-sm mb-5">
-              <strong className="text-white">60% of every platform fee</strong> goes to Ben's legal defense. 40% covers operations. Zero profit taken.
-            </p>
-            <Link to="/how-it-works" className="inline-flex items-center gap-2 font-semibold px-5 py-2 rounded-lg no-underline text-black transition-opacity hover:opacity-90" style={{ background: '#FFDE00' }}>
-              See fee structure <ArrowRight size={15} />
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: 'Raised for Ben', value: '$12,400+', accent: '#FFDE00' },
-              { label: 'Active Listings', value: '20',       accent: '#60a5fa' },
-              { label: 'Categories',     value: '8',         accent: '#4ade80' },
-              { label: 'Fee to Cause',   value: '60%',       accent: '#f87171' },
-            ].map(s => (
-              <div key={s.label} className="rounded-xl p-4 text-center" style={{ background: '#ffffff07', border: '1px solid #ffffff0e' }}>
-                <div className="text-xl font-bold" style={{ color: s.accent }}>{s.value}</div>
-                <div style={{ color: '#6b7280', fontSize: 11, marginTop: 3 }}>{s.label}</div>
+
+            {/* LEGO — large, col 3-4, row 1-2 */}
+            <div style={{ gridColumn: '3 / 5', gridRow: '1 / 3' }}>
+              <CategoryTile cat={CATEGORIES[1]} isHovered={hovered === 'lego'} onHover={() => setHovered('lego')} onLeave={() => setHovered(null)} />
+            </div>
+
+            {/* Small tiles — row 3, all 4 columns */}
+            {small.map((cat, i) => (
+              <div key={cat.id} style={{ gridColumn: `${i + 1} / ${i + 2}`, gridRow: '3 / 4' }}>
+                <CategoryTile cat={cat} isHovered={hovered === cat.id} onHover={() => setHovered(cat.id)} onLeave={() => setHovered(null)} />
               </div>
             ))}
           </div>
-        </div>
-      </section>
 
-      {/* Trust */}
-      <section className="max-w-7xl mx-auto px-4 pb-16">
-        <div className="grid md:grid-cols-3 gap-5">
-          {[
-            { Icon: Shield,    title: 'Buyer Protection', body: 'Item not as described? We make it right — every transaction covered.',                  accent: '#6366f1' },
-            { Icon: Heart,     title: 'Mission-Driven',   body: '60% of fees go to Reckless Ben\'s defense. Every sale stands up for collectors.',        accent: '#f87171' },
-            { Icon: TrendingUp,title: 'Lowest Real Fees', body: '4% + $0.50 — cheaper than eBay (13%), Mercari (10%), and TCGPlayer (10.75%).',            accent: '#4ade80' },
-          ].map(item => (
-            <div key={item.title} className="rounded-xl p-6 flex flex-col items-center text-center gap-3" style={{ background: '#ffffff05', border: '1px solid #ffffff0c' }}>
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `${item.accent}20` }}>
-                <item.Icon size={22} style={{ color: item.accent }} />
-              </div>
-              <h3 className="font-bold text-white text-sm">{item.title}</h3>
-              <p style={{ color: '#6b7280', fontSize: 13 }}>{item.body}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer style={{ background: '#06060a', borderTop: '1px solid #ffffff08' }}>
-        <div className="max-w-7xl mx-auto px-4 py-10 flex flex-wrap justify-between gap-6 text-sm" style={{ color: '#6b7280' }}>
-          <div>
-            <div className="text-white font-bold text-base mb-2">PlaysWell</div>
-            <p className="max-w-xs text-xs">The collector marketplace built for the community, by the community.</p>
-          </div>
-          <div className="flex gap-10 text-xs">
-            <div>
-              <div className="text-gray-400 font-semibold mb-3 uppercase tracking-wider text-xs">Categories</div>
-              <div className="flex flex-col gap-2">
-                {CAT_ROUTES.slice(0,4).map(c => <Link key={c.id} to={c.path} className="hover:text-white no-underline transition-colors" style={{ color: '#6b7280' }}>{c.label}</Link>)}
-              </div>
-            </div>
-            <div>
-              <div className="text-gray-400 font-semibold mb-3 uppercase tracking-wider text-xs">Tools</div>
-              <div className="flex flex-col gap-2">
-                {[{to:'/market','label':'Live Market'},{to:'/analytics','label':'Analytics'},{to:'/grading','label':'Grading ROI'},{to:'/pack-ev','label':'Pack EV'},{to:'/portfolio','label':'Portfolio'}].map(l => (
-                  <Link key={l.to} to={l.to} className="hover:text-white no-underline transition-colors" style={{ color: '#6b7280' }}>{l.label}</Link>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="text-gray-400 font-semibold mb-3 uppercase tracking-wider text-xs">Company</div>
-              <div className="flex flex-col gap-2">
-                <Link to="/how-it-works" className="hover:text-white no-underline transition-colors" style={{ color: '#6b7280' }}>How It Works</Link>
-                <Link to="/submit"       className="hover:text-white no-underline transition-colors" style={{ color: '#6b7280' }}>Submit Item</Link>
-                <Link to="/sell"         className="hover:text-white no-underline transition-colors" style={{ color: '#6b7280' }}>Sell</Link>
-              </div>
-            </div>
+          {/* Mobile: stacked grid */}
+          <div className="md:hidden grid gap-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            {CATEGORIES.map(cat => (
+              <Link
+                key={cat.id}
+                to={cat.path}
+                className="rounded-xl p-4 no-underline flex flex-col gap-1 border"
+                style={{ background: cat.dark, borderColor: cat.border, minHeight: 90 }}
+              >
+                <div className="w-5 h-0.5 rounded-full" style={{ background: cat.accent }} />
+                <div className="font-black text-base" style={{ color: cat.accent }}>{cat.label}</div>
+                <div className="text-xs" style={{ color: '#6b7280' }}>{cat.desc}</div>
+              </Link>
+            ))}
           </div>
         </div>
-        <div className="max-w-7xl mx-auto px-4 py-4 text-xs border-t" style={{ color: '#374151', borderColor: '#ffffff08' }}>
-          &copy; 2026 PlaysWell. All proceeds beyond operating costs support Reckless Ben's legal defense fund.
+
+        {/* Bottom bar */}
+        <div
+          className="flex items-center justify-between mt-6 pt-4 flex-wrap gap-3 transition-all duration-700"
+          style={{
+            borderTop: '1px solid #ffffff0a',
+            opacity: loaded ? 1 : 0,
+            transitionDelay: '0.2s',
+          }}
+        >
+          <div className="flex items-center gap-5">
+            {[
+              { val: '30,400+', label: 'items in catalog' },
+              { val: '4% + $0.50', label: 'platform fee' },
+              { val: '60%', label: 'of fees to Ben' },
+            ].map(stat => (
+              <div key={stat.label} className="flex items-baseline gap-1.5">
+                <span style={{ color: 'white', fontWeight: 700, fontSize: 14 }}>{stat.val}</span>
+                <span style={{ color: '#4b5563', fontSize: 11 }}>{stat.label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <Link to="/submit" className="text-xs font-semibold no-underline transition-colors hover:text-white" style={{ color: '#6b7280' }}>
+              Submit an Item
+            </Link>
+            <span style={{ color: '#1f2937' }}>|</span>
+            <Link to="/how-it-works" className="text-xs font-semibold no-underline transition-colors hover:text-white" style={{ color: '#6b7280' }}>
+              How It Works
+            </Link>
+            <span style={{ color: '#1f2937' }}>|</span>
+            <Link to="/market" className="text-xs font-semibold no-underline transition-colors hover:text-white" style={{ color: '#6b7280' }}>
+              Live Market
+            </Link>
+          </div>
         </div>
-      </footer>
+      </div>
     </div>
   )
 }
