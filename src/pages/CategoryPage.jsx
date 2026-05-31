@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, ChevronRight, Search, ChevronLeft } from 'lucide-react'
+import { ArrowRight, ChevronRight, Search, ChevronLeft, LayoutGrid, List, SlidersHorizontal, X } from 'lucide-react'
 import { categories, listings as staticListings } from '../data/listings'
 import { getListings } from '../lib/api'
 
@@ -169,10 +169,32 @@ function InfiniteCarousel({ items, speed = 24 }) {
 // ── Sorts ────────────────────────────────────────────────────────────────────
 
 const SORTS = [
-  { label: 'Newest',      sort: 'listed_at', order: 'desc' },
-  { label: 'Price: Low',  sort: 'price',     order: 'asc'  },
-  { label: 'Price: High', sort: 'price',     order: 'desc' },
-  { label: 'Name',        sort: 'card_name', order: 'asc'  },
+  { label: 'Newest First',   sort: 'listed_at', order: 'desc' },
+  { label: 'Price: Low',     sort: 'price',     order: 'asc'  },
+  { label: 'Price: High',    sort: 'price',     order: 'desc' },
+  { label: 'Name A–Z',       sort: 'card_name', order: 'asc'  },
+]
+
+const CONDITIONS = [
+  'New - Sealed',
+  'Like New - Complete',
+  'Graded - PSA 10',
+  'Graded - PSA 9',
+  'Graded - PSA 8',
+  'Graded - CGC 3.0',
+  'Raw - VG',
+  'Good - Complete',
+  'Good - Used',
+  'Heavy Play',
+]
+
+const PRICE_PRESETS = [
+  { label: 'Any',      min: '',    max: '' },
+  { label: 'Under $50',min: '',    max: '50' },
+  { label: '$50–$200', min: '50',  max: '200' },
+  { label: '$200–$500',min: '200', max: '500' },
+  { label: '$500–$1K', min: '500', max: '1000' },
+  { label: 'Over $1K', min: '1000',max: '' },
 ]
 
 // ── Main component ───────────────────────────────────────────────────────────
@@ -185,14 +207,25 @@ export default function CategoryPage({ catId }) {
   const [query,         setQuery]         = useState('')
   const [sortIdx,       setSortIdx]       = useState(0)
   const [page,          setPage]          = useState(1)
+  const [minPrice,      setMinPrice]      = useState('')
+  const [maxPrice,      setMaxPrice]      = useState('')
+  const [condition,     setCondition]     = useState('')
+  const [viewMode,      setViewMode]      = useState('grid') // grid | list
+  const [filtersOpen,   setFiltersOpen]   = useState(false)
   const PAGE_SIZE = 20
+
+  const activeFilterCount = [query, minPrice, maxPrice, condition].filter(Boolean).length
+
+  function clearFilters() {
+    setQuery(''); setMinPrice(''); setMaxPrice(''); setCondition(''); setPage(1)
+  }
 
   const cat  = categories.find(c => c.id === catId)
   const meta = CAT_META[catId] || { accent: '#6366f1', tagline: '' }
   const colors = CARD_COLORS[catId] || CARD_COLORS.pokemon
 
   // Static fallback — filter + shape static data to match API response shape
-  function getStaticFallback(catId, q = '', sortIdx = 0, page = 1, pageSize = 20) {
+  function getStaticFallback(catId, q = '', sortIdx = 0, page = 1, pageSize = 20, minP = '', maxP = '', cond = '') {
     const sort = SORTS[sortIdx]
     let items = staticListings.filter(l => l.category === catId)
     if (q) items = items.filter(l =>
@@ -200,7 +233,9 @@ export default function CategoryPage({ catId }) {
       l.set?.toLowerCase().includes(q.toLowerCase()) ||
       l.title?.toLowerCase().includes(q.toLowerCase())
     )
-    // Sort
+    if (minP) items = items.filter(l => l.price >= parseFloat(minP))
+    if (maxP) items = items.filter(l => l.price <= parseFloat(maxP))
+    if (cond) items = items.filter(l => l.condition === cond)
     if (sort.sort === 'price') items = [...items].sort((a,b) => sort.order === 'asc' ? a.price - b.price : b.price - a.price)
     else if (sort.sort === 'card_name') items = [...items].sort((a,b) => (a.cardName||'').localeCompare(b.cardName||''))
     else items = [...items].sort((a,b) => new Date(b.listed||0) - new Date(a.listed||0))
@@ -239,22 +274,27 @@ export default function CategoryPage({ catId }) {
     setLoading(true)
     try {
       const params = { category: catId, pageSize: PAGE_SIZE, page, ...SORTS[sortIdx] }
-      if (query) params.q = query
+      if (query)    params.q = query
+      if (minPrice) params.minPrice = minPrice
+      if (maxPrice) params.maxPrice = maxPrice
       const res = await getListings(params)
-      setListings(res.data)
-      setTotal(res.total)
+      // client-side condition filter (not in backend yet)
+      const filtered = condition
+        ? res.data.filter(l => l.condition === condition)
+        : res.data
+      setListings(filtered)
+      setTotal(condition ? filtered.length : res.total)
     } catch (e) {
-      // Fallback to static data
-      const fb = getStaticFallback(catId, query, sortIdx, page, PAGE_SIZE)
+      const fb = getStaticFallback(catId, query, sortIdx, page, PAGE_SIZE, minPrice, maxPrice, condition)
       setListings(fb.data)
       setTotal(fb.total)
     } finally {
       setLoading(false)
     }
-  }, [catId, query, sortIdx, page])
+  }, [catId, query, sortIdx, page, minPrice, maxPrice, condition])
 
   useEffect(() => { fetchGrid() }, [fetchGrid])
-  useEffect(() => { setPage(1) }, [catId, query, sortIdx])
+  useEffect(() => { setPage(1) }, [catId, query, sortIdx, minPrice, maxPrice, condition])
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
@@ -318,69 +358,259 @@ export default function CategoryPage({ catId }) {
       {/* ── GRID ─────────────────────────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 py-10">
 
-        {/* Filter bar */}
-        <div className="flex flex-wrap gap-3 mb-8 items-center">
+        {/* ── TOP BAR: search + sort + view ── */}
+        <div className="flex flex-wrap gap-3 mb-4 items-center">
+          {/* Search */}
           <div className="relative flex-1 min-w-48">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#6b7280' }} />
             <input
               type="text"
               placeholder={`Search ${cat.label}...`}
               value={query}
-              onChange={e => setQuery(e.target.value)}
+              onChange={e => { setQuery(e.target.value); setPage(1) }}
               className="w-full pl-9 pr-4 py-2 rounded-lg text-sm focus:outline-none"
               style={{ background: '#ffffff0a', border: `1px solid ${meta.accent}30`, color: 'white' }}
             />
+            {query && (
+              <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#6b7280' }}>
+                <X size={12} />
+              </button>
+            )}
           </div>
-          <div className="flex gap-2">
-            {SORTS.map((s, i) => (
-              <button key={i} onClick={() => setSortIdx(i)}
-                className="px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
-                style={sortIdx === i ? { background: meta.accent, color: '#000' } : { background: '#ffffff0a', color: '#9ca3af', border: '1px solid #ffffff12' }}>
-                {s.label}
+
+          {/* Sort */}
+          <select
+            value={sortIdx}
+            onChange={e => setSortIdx(Number(e.target.value))}
+            className="py-2 pl-3 pr-8 rounded-lg text-xs font-semibold focus:outline-none appearance-none"
+            style={{ background: '#ffffff0a', border: '1px solid #ffffff18', color: '#e2e8f0',
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center',
+            }}
+          >
+            {SORTS.map((s, i) => <option key={i} value={i} style={{ background: '#1a1a2e' }}>{s.label}</option>)}
+          </select>
+
+          {/* Filter toggle */}
+          <button
+            onClick={() => setFiltersOpen(o => !o)}
+            className="flex items-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all"
+            style={filtersOpen || activeFilterCount > 0
+              ? { background: meta.accent, color: '#000' }
+              : { background: '#ffffff0a', color: '#9ca3af', border: '1px solid #ffffff12' }}
+          >
+            <SlidersHorizontal size={13} />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="rounded-full w-4 h-4 flex items-center justify-center text-xs font-black"
+                style={{ background: filtersOpen ? '#00000033' : `${meta.accent}33`, color: filtersOpen ? '#000' : meta.accent, fontSize: 9 }}>
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
+          {/* View toggle */}
+          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid #ffffff12' }}>
+            {[{ mode: 'grid', Icon: LayoutGrid }, { mode: 'list', Icon: List }].map(({ mode, Icon }) => (
+              <button key={mode} onClick={() => setViewMode(mode)}
+                className="p-2 transition-colors"
+                style={viewMode === mode ? { background: meta.accent + '33', color: meta.accent } : { background: '#ffffff0a', color: '#6b7280' }}>
+                <Icon size={14} />
               </button>
             ))}
           </div>
-          <span style={{ color: '#6b7280', fontSize: 12 }}>{total.toLocaleString()} result{total !== 1 ? 's' : ''}</span>
+
+          <span style={{ color: '#6b7280', fontSize: 12 }}>{loading ? '...' : `${total.toLocaleString()} result${total !== 1 ? 's' : ''}`}</span>
+
+          {/* Clear all */}
+          {activeFilterCount > 0 && (
+            <button onClick={clearFilters} className="text-xs transition-colors hover:text-white flex items-center gap-1" style={{ color: '#6b7280' }}>
+              <X size={11} /> Clear all
+            </button>
+          )}
         </div>
 
-        {/* Grid */}
+        {/* ── EXPANDED FILTER PANEL ── */}
+        {filtersOpen && (
+          <div className="mb-6 rounded-xl p-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            style={{ background: '#ffffff06', border: `1px solid ${meta.accent}22` }}>
+
+            {/* Price range presets */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#6b7280' }}>Price Range</label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {PRICE_PRESETS.map(p => {
+                  const active = minPrice === p.min && maxPrice === p.max
+                  return (
+                    <button key={p.label} onClick={() => { setMinPrice(p.min); setMaxPrice(p.max); setPage(1) }}
+                      className="px-2.5 py-1 rounded-full text-xs font-semibold transition-all"
+                      style={active ? { background: meta.accent, color: '#000' } : { background: '#ffffff0a', color: '#9ca3af', border: '1px solid #ffffff12' }}>
+                      {p.label}
+                    </button>
+                  )
+                })}
+              </div>
+              {/* Custom min/max */}
+              <div className="flex items-center gap-2">
+                <input type="number" placeholder="Min $" value={minPrice} onChange={e => { setMinPrice(e.target.value); setPage(1) }}
+                  className="flex-1 px-3 py-1.5 rounded-lg text-xs focus:outline-none"
+                  style={{ background: '#ffffff0a', border: '1px solid #ffffff15', color: 'white', width: 0 }} />
+                <span style={{ color: '#4b5563', fontSize: 11 }}>–</span>
+                <input type="number" placeholder="Max $" value={maxPrice} onChange={e => { setMaxPrice(e.target.value); setPage(1) }}
+                  className="flex-1 px-3 py-1.5 rounded-lg text-xs focus:outline-none"
+                  style={{ background: '#ffffff0a', border: '1px solid #ffffff15', color: 'white', width: 0 }} />
+              </div>
+            </div>
+
+            {/* Condition */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#6b7280' }}>Condition</label>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => { setCondition(''); setPage(1) }}
+                  className="px-2.5 py-1 rounded-full text-xs font-semibold transition-all"
+                  style={!condition ? { background: meta.accent, color: '#000' } : { background: '#ffffff0a', color: '#9ca3af', border: '1px solid #ffffff12' }}>
+                  Any
+                </button>
+                {CONDITIONS.map(c => (
+                  <button key={c} onClick={() => { setCondition(condition === c ? '' : c); setPage(1) }}
+                    className="px-2.5 py-1 rounded-full text-xs font-semibold transition-all"
+                    style={condition === c ? { background: meta.accent, color: '#000' } : { background: '#ffffff0a', color: '#9ca3af', border: '1px solid #ffffff12' }}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Active filters summary */}
+            {activeFilterCount > 0 && (
+              <div className="flex flex-col justify-end">
+                <div className="rounded-lg p-3" style={{ background: '#ffffff06', border: '1px solid #ffffff0c' }}>
+                  <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6b7280' }}>Active Filters</div>
+                  {query && <div className="text-xs mb-1" style={{ color: '#e2e8f0' }}>Search: <span style={{ color: meta.accent }}>"{query}"</span></div>}
+                  {(minPrice || maxPrice) && <div className="text-xs mb-1" style={{ color: '#e2e8f0' }}>Price: <span style={{ color: meta.accent }}>${minPrice||'0'} – {maxPrice ? `$${maxPrice}` : 'any'}</span></div>}
+                  {condition && <div className="text-xs mb-1" style={{ color: '#e2e8f0' }}>Condition: <span style={{ color: meta.accent }}>{condition}</span></div>}
+                  <button onClick={clearFilters} className="mt-2 text-xs font-semibold transition-colors hover:opacity-70" style={{ color: meta.accent }}>
+                    Clear all filters
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── GRID / LIST VIEW ── */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="rounded-xl animate-pulse" style={{ height: 290, background: '#ffffff06' }} />
+          <div className={viewMode === 'grid'
+            ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
+            : 'flex flex-col gap-3'}>
+            {Array.from({ length: viewMode === 'grid' ? 10 : 6 }).map((_, i) => (
+              <div key={i} className="rounded-xl animate-pulse"
+                style={{ height: viewMode === 'grid' ? 290 : 80, background: '#ffffff06' }} />
             ))}
           </div>
         ) : listings.length === 0 ? (
           <div className="text-center py-24">
-            <p style={{ color: '#6b7280' }} className="mb-3">
-              {query ? 'No listings match your search.' : 'No listings yet in this category.'}
-            </p>
-            {!query && (
-              <Link to="/sell" className="inline-flex items-center gap-2 font-semibold px-5 py-2 rounded-lg no-underline text-black text-sm" style={{ background: meta.accent }}>
-                Be the first to sell <ArrowRight size={14} />
-              </Link>
-            )}
+            <p style={{ color: '#6b7280' }} className="mb-3">No listings match your filters.</p>
+            <button onClick={clearFilters} className="text-sm font-semibold transition-colors hover:opacity-80" style={{ color: meta.accent }}>
+              Clear filters
+            </button>
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {listings.map(l => <GridCard key={l.id} listing={l} />)}
           </div>
+        ) : (
+          // List view
+          <div className="flex flex-col gap-2">
+            {listings.map(l => {
+              const c = CARD_COLORS[l.category] || CARD_COLORS.pokemon
+              const badge = BADGE[l.condition] || { label: 'USED', color: '#fff', bg: '#475569' }
+              return (
+                <Link key={l.id} to={`/listing/${l.id}`} className="no-underline group">
+                  <div className="flex items-center gap-4 rounded-xl px-4 py-3 transition-all duration-150 group-hover:scale-[1.005]"
+                    style={{ background: '#ffffff06', border: `1px solid ${c.border}33` }}>
+                    {/* Thumbnail */}
+                    <div className="flex-shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
+                      style={{ width: 56, height: 56, background: c.bg }}>
+                      {l.image_url ? (
+                        <img src={l.image_url} alt={l.card_name} className="w-full h-full object-contain" style={{ objectFit: 'cover' }}
+                          onError={e => { e.target.style.display='none' }} />
+                      ) : (
+                        <span style={{ color: c.border, fontSize: 9, fontWeight: 700, textAlign: 'center', lineHeight: 1.2, padding: 4 }}>{l.card_name}</span>
+                      )}
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-white text-sm leading-tight truncate">{l.card_name}</div>
+                      <div className="text-xs mt-0.5 truncate" style={{ color: '#6b7280' }}>{l.set_name}{l.card_number ? ` · ${l.card_number}` : ''}</div>
+                    </div>
+                    {/* Condition */}
+                    <div className="hidden sm:block flex-shrink-0">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: badge.bg, color: badge.color }}>
+                        {badge.label}
+                      </span>
+                    </div>
+                    {/* Seller */}
+                    <div className="hidden md:block flex-shrink-0 text-xs" style={{ color: '#4b5563', width: 90 }}>
+                      {l.seller_name}
+                    </div>
+                    {/* Date */}
+                    <div className="hidden lg:block flex-shrink-0 text-xs" style={{ color: '#374151', width: 80 }}>
+                      {l.listed_at?.split('T')[0] || ''}
+                    </div>
+                    {/* Price */}
+                    <div className="flex-shrink-0 font-bold text-sm" style={{ color: c.border, minWidth: 64, textAlign: 'right' }}>
+                      ${parseFloat(l.price).toLocaleString()}
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
         )}
 
-        {/* Pagination */}
+        {/* ── PAGINATION ── */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 mt-10">
+          <div className="flex items-center justify-center gap-2 mt-10">
+            <button onClick={() => setPage(1)} disabled={page === 1}
+              className="px-2 py-1.5 rounded-lg text-xs disabled:opacity-30 transition-colors hover:bg-white/10"
+              style={{ background: '#ffffff0a', color: 'white' }}>«</button>
             <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}
               className="p-2 rounded-lg disabled:opacity-30 transition-colors hover:bg-white/10"
               style={{ background: '#ffffff0a', color: 'white' }}>
-              <ChevronLeft size={16} />
+              <ChevronLeft size={15} />
             </button>
-            <span style={{ color: '#6b7280', fontSize: 13 }}>Page {page} of {totalPages}</span>
+
+            {/* Page numbers */}
+            {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+              let pageNum
+              if (totalPages <= 7) pageNum = i + 1
+              else if (page <= 4) pageNum = i + 1
+              else if (page >= totalPages - 3) pageNum = totalPages - 6 + i
+              else pageNum = page - 3 + i
+              return (
+                <button key={pageNum} onClick={() => setPage(pageNum)}
+                  className="w-8 h-8 rounded-lg text-xs font-semibold transition-all"
+                  style={page === pageNum
+                    ? { background: meta.accent, color: '#000' }
+                    : { background: '#ffffff0a', color: '#9ca3af' }}>
+                  {pageNum}
+                </button>
+              )
+            })}
+
             <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages}
               className="p-2 rounded-lg disabled:opacity-30 transition-colors hover:bg-white/10"
               style={{ background: '#ffffff0a', color: 'white' }}>
-              <ChevronRight size={16} />
+              <ChevronRight size={15} />
             </button>
+            <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
+              className="px-2 py-1.5 rounded-lg text-xs disabled:opacity-30 transition-colors hover:bg-white/10"
+              style={{ background: '#ffffff0a', color: 'white' }}>»</button>
+
+            <span style={{ color: '#4b5563', fontSize: 11, marginLeft: 4 }}>
+              {((page-1)*PAGE_SIZE)+1}–{Math.min(page*PAGE_SIZE, total)} of {total.toLocaleString()}
+            </span>
           </div>
         )}
       </section>
