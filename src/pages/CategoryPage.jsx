@@ -212,7 +212,7 @@ export default function CategoryPage({ catId }) {
   const [condition,     setCondition]     = useState('')
   const [viewMode,      setViewMode]      = useState('grid') // grid | list
   const [filtersOpen,   setFiltersOpen]   = useState(false)
-  const PAGE_SIZE = 20
+  const PAGE_SIZE = 40
 
   const activeFilterCount = [query, minPrice, maxPrice, condition].filter(Boolean).length
 
@@ -354,6 +354,66 @@ export default function CategoryPage({ catId }) {
           </div>
         )}
       </section>
+
+      {/* ── STATS BAR ────────────────────────────────────────────────────── */}
+      <section style={{ borderBottom: '1px solid #ffffff08' }}>
+        <div className="max-w-7xl mx-auto px-4 py-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: 'Listings Available', value: total > 0 ? total.toLocaleString() : '—' },
+              { label: 'Lowest Price', value: listings.length > 0 ? `$${Math.min(...listings.map(l => parseFloat(l.price))).toLocaleString()}` : '—' },
+              { label: 'Highest Price', value: listings.length > 0 ? `$${Math.max(...listings.map(l => parseFloat(l.price))).toLocaleString()}` : '—' },
+              { label: 'Platform Fee', value: '4% + $0.50' },
+            ].map(s => (
+              <div key={s.label} className="rounded-xl px-5 py-4" style={{ background: '#ffffff05', border: '1px solid #ffffff08' }}>
+                <div className="font-black text-xl" style={{ color: meta.accent }}>{s.value}</div>
+                <div className="text-xs mt-0.5" style={{ color: '#4b5563' }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── TOP PICKS ────────────────────────────────────────────────────── */}
+      {carouselItems.length > 0 && (
+        <section style={{ borderBottom: '1px solid #ffffff08' }}>
+          <div className="max-w-7xl mx-auto px-4 py-10">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="font-bold text-white text-lg">Top Picks</h2>
+                <p style={{ color: '#4b5563', fontSize: 12 }}>Featured listings in this category</p>
+              </div>
+              <Link to="/browse" className="text-xs font-semibold no-underline flex items-center gap-1 transition-colors hover:text-white" style={{ color: '#6b7280' }}>
+                View all <ChevronRight size={13} />
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              {carouselItems.slice(0, 6).map(l => {
+                const c = CARD_COLORS[l.category] || CARD_COLORS.pokemon
+                const badge = BADGE[l.condition] || { label: 'USED', color: '#fff', bg: '#475569' }
+                return (
+                  <Link key={l.id} to={`/listing/${l.id}`} className="no-underline group">
+                    <div className="rounded-xl overflow-hidden flex flex-col transition-all duration-200 group-hover:scale-105"
+                      style={{ border: `2px solid ${c.border}`, boxShadow: `0 0 14px ${c.glow}`, background: c.bg, height: 220 }}>
+                      <div className="flex items-center justify-between px-2 pt-1.5 pb-0.5">
+                        <span style={{ fontSize: 8, fontWeight: 700, background: badge.bg, color: badge.color, padding: '1px 4px', borderRadius: 3 }}>{badge.label}</span>
+                        <span style={{ fontSize: 10, color: c.border, fontWeight: 700 }}>${parseFloat(l.price).toLocaleString()}</span>
+                      </div>
+                      <div className="flex-1 overflow-hidden">
+                        <CardImage listing={l} colors={c} height={148} />
+                      </div>
+                      <div className="px-2 pb-2 pt-0.5">
+                        <div style={{ color: '#f1f5f9', fontSize: 9, fontWeight: 600 }} className="line-clamp-1">{l.card_name}</div>
+                        <div style={{ color: '#64748b', fontSize: 8 }}>{l.set_name}</div>
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── GRID ─────────────────────────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 py-10">
@@ -615,17 +675,115 @@ export default function CategoryPage({ catId }) {
         )}
       </section>
 
-      {/* ── OTHER CATEGORIES ─────────────────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 pb-14">
-        <h2 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: '#4b5563' }}>Other Categories</h2>
-        <div className="flex flex-wrap gap-2">
+      {/* ── HOW IT WORKS (mini) ──────────────────────────────────────────── */}
+      <section style={{ borderTop: '1px solid #ffffff08', borderBottom: '1px solid #ffffff08' }}>
+        <div className="max-w-7xl mx-auto px-4 py-14">
+          <div className="grid md:grid-cols-2 gap-10 items-center">
+            <div>
+              <div className="w-8 h-1 rounded-full mb-4" style={{ background: meta.accent }} />
+              <h2 className="text-2xl font-black text-white mb-3">Sell your {cat.label}</h2>
+              <p style={{ color: '#6b7280', lineHeight: 1.7 }} className="text-sm mb-6">
+                List your items for free. You set the price — we never negotiate it without your permission.
+                Once sold, you receive your payout minus our <strong className="text-white">4% + $0.50 platform fee</strong>.
+                60% of every fee goes directly to Reckless Ben's legal defense fund.
+              </p>
+              <div className="flex flex-col gap-3 mb-6">
+                {[
+                  { step: '1', title: 'Submit your item', desc: 'Fill out the form — name, condition, your asking price.' },
+                  { step: '2', title: 'We review and list it', desc: 'Usually live within 24 hours.' },
+                  { step: '3', title: 'Buyer pays, you get paid', desc: `You receive the full price minus 4% + $0.50.` },
+                ].map(s => (
+                  <div key={s.step} className="flex items-start gap-4">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5"
+                      style={{ background: `${meta.accent}22`, color: meta.accent, border: `1px solid ${meta.accent}44` }}>
+                      {s.step}
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-white">{s.title}</div>
+                      <div className="text-xs mt-0.5" style={{ color: '#6b7280' }}>{s.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Link to="/submit"
+                className="inline-flex items-center gap-2 font-bold px-6 py-3 rounded-xl no-underline text-black text-sm transition-opacity hover:opacity-90"
+                style={{ background: meta.accent }}>
+                Submit an Item <ArrowRight size={15} />
+              </Link>
+            </div>
+
+            {/* Fee breakdown card */}
+            <div className="rounded-2xl p-6" style={{ background: '#ffffff06', border: '1px solid #ffffff10' }}>
+              <div className="text-xs font-bold uppercase tracking-wider mb-5" style={{ color: '#6b7280' }}>Fee Example — $500 sale</div>
+              {[
+                { label: 'Your asking price', value: '$500.00', color: 'white' },
+                { label: 'Platform fee (4% + $0.50)', value: '−$20.50', color: '#f87171' },
+                { label: 'You receive', value: '$479.50', color: '#4ade80', bold: true, big: true },
+              ].map(row => (
+                <div key={row.label} className={`flex justify-between items-center ${row.bold ? 'pt-3 border-t mt-3' : 'mb-3'}`}
+                  style={row.bold ? { borderColor: '#ffffff10' } : {}}>
+                  <span style={{ color: row.bold ? 'white' : '#6b7280', fontSize: row.big ? 15 : 13, fontWeight: row.bold ? 700 : 400 }}>{row.label}</span>
+                  <span style={{ color: row.color, fontSize: row.big ? 22 : 14, fontWeight: 700 }}>{row.value}</span>
+                </div>
+              ))}
+              <div className="mt-4 rounded-xl p-4" style={{ background: '#0d0d1a', border: '1px solid #ffffff08' }}>
+                <div className="flex justify-between text-xs mb-1.5" style={{ color: '#d97706' }}>
+                  <span>Goes to Ben's legal defense (60%)</span><span>$12.30</span>
+                </div>
+                <div className="flex justify-between text-xs" style={{ color: '#4b5563' }}>
+                  <span>Operations (40%)</span><span>$8.20</span>
+                </div>
+              </div>
+              <Link to="/how-it-works" className="block text-center mt-4 text-xs no-underline transition-colors hover:text-white" style={{ color: '#6b7280' }}>
+                Full fee breakdown →
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── BROWSE OTHER CATEGORIES ──────────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 py-14">
+        <h2 className="text-lg font-bold text-white mb-6">Browse Other Categories</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
           {categories.filter(c => c.id !== catId).map(c => (
-            <Link key={c.id} to={`/${c.id}`}
-              className="px-3 py-1.5 rounded-full no-underline text-xs font-medium transition-colors hover:opacity-80"
-              style={{ background: `${c.bg}25`, border: `1px solid ${c.bg}45`, color: '#d1d5db' }}>
-              {c.label}
+            <Link key={c.id} to={`/${c.id}`} className="no-underline group">
+              <div className="rounded-xl p-4 flex flex-col gap-2 transition-all duration-200 group-hover:scale-[1.03] border"
+                style={{ background: `${c.bg}18`, borderColor: `${c.bg}44` }}>
+                <div className="w-5 h-0.5 rounded-full" style={{ background: CARD_COLORS[c.id]?.border || '#6366f1' }} />
+                <div className="font-bold text-sm text-white leading-tight">{c.label}</div>
+                <div className="text-xs flex items-center gap-1 transition-colors group-hover:text-white" style={{ color: '#4b5563' }}>
+                  Browse <ChevronRight size={10} />
+                </div>
+              </div>
             </Link>
           ))}
+        </div>
+      </section>
+
+      {/* ── CAUSE BANNER ─────────────────────────────────────────────────── */}
+      <section style={{ borderTop: '1px solid #ffffff08' }}>
+        <div className="max-w-7xl mx-auto px-4 py-10">
+          <div className="rounded-2xl px-8 py-7 flex flex-wrap items-center justify-between gap-6"
+            style={{ background: 'linear-gradient(135deg,#110d1e,#0d0a18)', border: '1px solid #ffffff10' }}>
+            <div className="flex-1">
+              <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#f97316' }}>Our Cause</div>
+              <h3 className="text-lg font-black text-white mb-1">Every sale supports Reckless Ben</h3>
+              <p style={{ color: '#6b7280', fontSize: 13 }}>
+                60% of every PlaysWell platform fee goes to YouTuber Reckless Ben's legal defense fund — arrested in Utah on May 30, 2026 for investigating the Bricks & Minifigs scandal.
+              </p>
+            </div>
+            <div className="flex gap-4 flex-shrink-0">
+              <Link to="/how-it-works" className="font-semibold px-5 py-2.5 rounded-xl no-underline text-sm border transition-colors hover:bg-white/10"
+                style={{ borderColor: '#ffffff20', color: 'white' }}>
+                Learn More
+              </Link>
+              <Link to="/submit" className="font-bold px-5 py-2.5 rounded-xl no-underline text-black text-sm transition-opacity hover:opacity-90"
+                style={{ background: '#FFDE00' }}>
+                Sell Now
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
     </div>
