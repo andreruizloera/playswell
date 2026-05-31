@@ -1,10 +1,26 @@
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1'
 
+// Track whether the backend is reachable so we don't spam failed requests
+let backendReachable: boolean | null = null
+let checkPromise: Promise<boolean> | null = null
+
+async function checkBackend(): Promise<boolean> {
+  if (backendReachable !== null) return backendReachable
+  if (checkPromise) return checkPromise
+  checkPromise = fetch(`${BASE.replace('/api/v1', '')}/health`, { signal: AbortSignal.timeout(2000) })
+    .then(r => { backendReachable = r.ok; return r.ok })
+    .catch(() => { backendReachable = false; return false })
+  return checkPromise
+}
+
+export function isBackendUp() { return backendReachable === true }
+
 async function get<T>(path: string, params?: Record<string,string|number>): Promise<T> {
   const url = new URL(`${BASE}${path}`)
   if (params) Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, String(v)))
-  const res = await fetch(url.toString())
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(5000) })
   if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
+  backendReachable = true
   return res.json()
 }
 

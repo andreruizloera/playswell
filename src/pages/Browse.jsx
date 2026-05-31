@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getListings } from '../lib/api'
-import { categories } from '../data/listings'
+import { categories, listings as staticListings } from '../data/listings'
 
 const CARD_COLORS = {
   pokemon:        { border: '#FFDE00', glow: '#FFDE0033', bg: 'linear-gradient(160deg,#1a1a2e,#16213e)' },
@@ -98,7 +98,22 @@ export default function Browse() {
       setListings(res.data)
       setTotal(res.total)
     } catch (err) {
-      setError(err.message)
+      // Fallback to static data
+      const sort = SORTS[sortIdx]
+      let items = [...staticListings]
+      if (category) items = items.filter(l => l.category === category)
+      if (query) items = items.filter(l =>
+        (l.cardName||l.title||'').toLowerCase().includes(query.toLowerCase()) ||
+        (l.set||'').toLowerCase().includes(query.toLowerCase())
+      )
+      if (sort.sort === 'price') items.sort((a,b) => sort.order === 'asc' ? a.price - b.price : b.price - a.price)
+      const paged = items.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE)
+      setListings(paged.map(l => ({
+        ...l, id: l.id, card_name: l.cardName||l.title, set_name: l.set||'',
+        card_number: l.number||null, image_url: l.image||null, seller_name: l.seller, listed_at: l.listed||'',
+      })))
+      setTotal(items.length)
+      setError(null)
     } finally {
       setLoading(false)
     }

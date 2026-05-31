@@ -2,9 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/playswell/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>playswell</title>
+    <title>PlaysWell — The Collector Marketplace</title>
+    <meta name="description" content="Buy and sell Pokemon cards, LEGO sets, sports cards, comics and more. Lowest fees of any real marketplace. All profit goes to Reckless Ben's legal defense." />
+    <script>
+      // Restore GitHub Pages SPA redirect: ?/pokemon -> /pokemon
+      (function() {
+        var base = '/playswell';
+        var redirect = sessionStorage.redirect;
+        delete sessionStorage.redirect;
+        if (redirect && redirect !== location.href) {
+          history.replaceState(null, null, redirect);
+        }
+        // Handle ?/ style redirects from 404.html
+        var search = location.search;
+        if (search.startsWith('?/')) {
+          var path = base + '/' + search.slice(2);
+          history.replaceState(null, null, path + location.hash);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

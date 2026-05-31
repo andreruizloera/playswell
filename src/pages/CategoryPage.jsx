@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, ChevronRight, Search, ChevronLeft } from 'lucide-react'
-import { categories } from '../data/listings'
+import { categories, listings as staticListings } from '../data/listings'
 import { getListings } from '../lib/api'
 
 const CARD_COLORS = {
@@ -191,11 +191,47 @@ export default function CategoryPage({ catId }) {
   const meta = CAT_META[catId] || { accent: '#6366f1', tagline: '' }
   const colors = CARD_COLORS[catId] || CARD_COLORS.pokemon
 
+  // Static fallback — filter + shape static data to match API response shape
+  function getStaticFallback(catId, q = '', sortIdx = 0, page = 1, pageSize = 20) {
+    const sort = SORTS[sortIdx]
+    let items = staticListings.filter(l => l.category === catId)
+    if (q) items = items.filter(l =>
+      l.cardName?.toLowerCase().includes(q.toLowerCase()) ||
+      l.set?.toLowerCase().includes(q.toLowerCase()) ||
+      l.title?.toLowerCase().includes(q.toLowerCase())
+    )
+    // Sort
+    if (sort.sort === 'price') items = [...items].sort((a,b) => sort.order === 'asc' ? a.price - b.price : b.price - a.price)
+    else if (sort.sort === 'card_name') items = [...items].sort((a,b) => (a.cardName||'').localeCompare(b.cardName||''))
+    else items = [...items].sort((a,b) => new Date(b.listed||0) - new Date(a.listed||0))
+    const total = items.length
+    const paged = items.slice((page-1)*pageSize, page*pageSize)
+    // Normalize shape to match API
+    return {
+      data: paged.map(l => ({
+        ...l,
+        id: l.id,
+        card_name: l.cardName || l.title,
+        set_name:  l.set || '',
+        card_number: l.number || null,
+        image_url: l.image || null,
+        condition: l.condition,
+        seller_name: l.seller,
+        listed_at: l.listed || '',
+      })),
+      total,
+    }
+  }
+
   // Fetch carousel (first load, unfiltered, most recent)
   useEffect(() => {
     getListings({ category: catId, pageSize: 20, sort: 'listed_at', order: 'desc' })
       .then(res => setCarouselItems(res.data))
-      .catch(() => {})
+      .catch(() => {
+        // Fallback to static data
+        const fb = getStaticFallback(catId, '', 0, 1, 20)
+        setCarouselItems(fb.data)
+      })
   }, [catId])
 
   // Fetch grid listings
@@ -208,7 +244,10 @@ export default function CategoryPage({ catId }) {
       setListings(res.data)
       setTotal(res.total)
     } catch (e) {
-      setListings([])
+      // Fallback to static data
+      const fb = getStaticFallback(catId, query, sortIdx, page, PAGE_SIZE)
+      setListings(fb.data)
+      setTotal(fb.total)
     } finally {
       setLoading(false)
     }
