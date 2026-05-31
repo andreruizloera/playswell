@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PlaysWell</title>
+  <script>
+    // GitHub Pages SPA redirect trick
+    // Converts /playswell/pokemon -> /playswell/?/pokemon
+    var l = window.location;
+    var base = '/playswell';
+    var path = l.pathname.replace(base, '');
+    if (path && path !== '/') {
+      l.replace(base + '/?/' + path.replace(/^\//, '') + l.search + l.hash);
+    } else {
+      l.replace(base + '/');
+    }
+  </script>
+</head>
+<body></body>
+</html>
